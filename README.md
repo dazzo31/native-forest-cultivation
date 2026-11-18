@@ -1,5 +1,7 @@
 # Native Forest Cultivation
 
+![Native Forest Cultivation](forum-banner.png)
+
 Factorio 2.1 + Space Age mod. Cultivate planet- and soil-appropriate native vegetation using standard Agricultural Towers and vanilla tree seeds, while living trees actively reduce local airborne pollutants.
 
 A fork of [FreezingSnail/native-flora-cultivation](https://github.com/FreezingSnail/native-flora-cultivation).
