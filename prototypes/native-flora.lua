@@ -1,8 +1,6 @@
 local seconds = 60
 local growth_ticks = 5 * seconds * 60
 
--- Gleba plants each get their own seed, tinted so the 10 seed items stay distinguishable
--- at a glance. Nauvis trees have no seed of their own: they reuse the vanilla tree-seed.
 local gleba_flora = {
   {source = "cuttlepop", tint = {r = 0.95, g = 0.45, b = 0.60, a = 1}},
   {source = "slipstack", tint = {r = 0.65, g = 0.80, b = 0.90, a = 1}},
@@ -27,10 +25,6 @@ local new_prototypes = {}
 
 local function add(prototype)
   new_prototypes[#new_prototypes + 1] = prototype
-end
-
-local function unlock(technology, recipe)
-  table.insert(data.raw.technology[technology].effects, {type = "unlock-recipe", recipe = recipe})
 end
 
 local function assign_surface(sprite, surface)
@@ -58,60 +52,22 @@ local function has_normals(source)
   return true
 end
 
-local function seed_icons(tint)
-  return {{icon = "__space-age__/graphics/icons/tree-seed.png", icon_size = 64, tint = tint}}
+local function merge_emissions(entity, target_emissions)
+  if not entity then return end
+  local current = entity.emissions_per_second or {}
+  local new_emissions = table.deepcopy(current)
+  for pollutant, rate in pairs(target_emissions) do
+    if new_emissions[pollutant] == nil or new_emissions[pollutant] > rate then
+      new_emissions[pollutant] = rate
+    end
+  end
+  entity.emissions_per_second = new_emissions
 end
 
--- Decorations are hand-placeable clones that return themselves when mined, so curated
--- placement is never disposable. They are cultured in a biochamber from a seed.
-local function register_decoration(source_name, planet, ingredient)
-  local source = assert(data.raw.tree[source_name], "Missing native flora prototype: " .. source_name)
-  local name = "native-flora-" .. source_name .. "-decoration"
-  local label = {"item-name.native-flora-decoration", {"entity-name." .. source_name}}
-
-  local decoration = table.deepcopy(source)
-  decoration.name = name
-  decoration.localised_name = label
-  decoration.autoplace = {probability_expression = 0}
-  decoration.minable = {mining_time = 0.2, result = name}
-  decoration.dying_explosion = nil
-  decoration.remains_when_mined = nil
-  decoration.created_effect = nil
-  add(decoration)
-
-  add({
-    type = "item",
-    name = name,
-    localised_name = label,
-    localised_description = {"item-description.native-flora-decoration"},
-    icon = source.icon,
-    icon_size = source.icon_size or 64,
-    subgroup = planet.decoration_subgroup,
-    order = "b[decoration]-" .. source_name,
-    place_result = name,
-    stack_size = 20,
-    weight = 10 * kg
-  })
-
-  add({
-    type = "recipe",
-    name = name,
-    localised_name = label,
-    localised_description = {"recipe-description.native-flora-decoration"},
-    categories = {"organic"},
-    enabled = false,
-    energy_required = 5,
-    ingredients = {ingredient},
-    results = {{type = "item", name = name, amount = 1}}
-  })
-  unlock("biochamber", name)
-end
-
--- Gleba crops close their own loop: wild plants drop the tinted seed, the agricultural tower
--- plants it, and harvesting the grown crop yields two seeds back.
+-- Cultivate Gleba native crops using vanilla tree-seed:
+-- crops drop native products and wood to sustain tree-seed crafting.
 local function register_gleba_crop(entry)
   local source = assert(data.raw.tree[entry.source], "Missing native flora prototype: " .. entry.source)
-  local seed_name = "native-flora-" .. entry.source .. "-seed"
   local crop_name = "native-flora-" .. entry.source .. "-crop"
   local growth_template = assert(data.raw.plant["tree-plant"], "Space Age planted-tree prototype is required")
 
@@ -123,8 +79,25 @@ local function register_gleba_crop(entry)
   crop.surface_conditions = {{property = "pressure", min = gleba_pressure, max = gleba_pressure}}
   crop.growth_ticks = growth_ticks
   crop.harvest_emissions = {spores = 1}
+  crop.emissions_per_second = {spores = -0.05, pollution = -0.005}
   crop.agricultural_tower_tint = {primary = entry.tint, secondary = {r = 0.45, g = 0.35, b = 0.20, a = 1}}
-  crop.minable = {mining_time = 0.5, results = {{type = "item", name = seed_name, amount = 2}}}
+
+  -- Gleba crops drop native products and wood for crafting seeds (Space Age wood loop)
+  local crop_results = {}
+  local has_wood = false
+  for _, prod in ipairs(source.minable.results or {}) do
+    if prod.name == "wood" then
+      crop_results[#crop_results + 1] = {type = "item", name = "wood", amount = math.max(prod.amount or 1, 4)}
+      has_wood = true
+    elseif prod.name ~= "tree-seed" then
+      crop_results[#crop_results + 1] = table.deepcopy(prod)
+    end
+  end
+  if not has_wood then
+    crop_results[#crop_results + 1] = {type = "item", name = "wood", amount = 4}
+  end
+
+  crop.minable = {mining_time = 0.5, results = crop_results}
   crop.dying_explosion = nil
   crop.remains_when_mined = nil
   crop.created_effect = nil
@@ -153,45 +126,77 @@ local function register_gleba_crop(entry)
     crop.growth_mounds[index] = growth_mound
   end
   add(crop)
-
-  add({
-    type = "item",
-    name = seed_name,
-    localised_name = {"item-name.native-flora-seed", {"entity-name." .. entry.source}},
-    localised_description = {"item-description.native-flora-seed"},
-    icons = seed_icons(entry.tint),
-    subgroup = "native-flora-gleba-seeds",
-    order = "a[seed]-" .. entry.source,
-    plant_result = crop_name,
-    place_result = crop_name,
-    stack_size = 10,
-    weight = 10 * kg
-  })
-
-  -- Wild flora is the only source of the first seeds, so harvesting it must drop them.
-  local minable = source.minable
-  if minable.result then
-    minable.results = {{type = "item", name = minable.result, amount = minable.count or 1}}
-    minable.result = nil
-    minable.count = nil
-  end
-  table.insert(minable.results, {type = "item", name = seed_name, amount = 1})
 end
 
-local gleba = {decoration_subgroup = "native-flora-gleba"}
-local nauvis = {decoration_subgroup = "native-flora-nauvis"}
-
 for _, entry in ipairs(gleba_flora) do
+  if data.raw.tree[entry.source] then
+    merge_emissions(data.raw.tree[entry.source], {spores = -0.05, pollution = -0.005})
+  end
   if has_normals(data.raw.tree[entry.source]) then
     register_gleba_crop(entry)
-    register_decoration(entry.source, gleba, {type = "item", name = "native-flora-" .. entry.source .. "-seed", amount = 1})
   else
-    log("native-flora-cultivation: skipping " .. entry.source .. " (variations lack normal maps, unsupported by plant rendering)")
+    log("native-forest-cultivation: skipping " .. entry.source .. " (variations lack normal maps, unsupported by plant rendering)")
   end
 end
 
 for _, source_name in ipairs(nauvis_trees) do
-  register_decoration(source_name, nauvis, {type = "item", name = "tree-seed", amount = 1})
+  if data.raw.tree[source_name] then
+    merge_emissions(data.raw.tree[source_name], {pollution = -0.005})
+  end
+end
+
+-- Extend tree-plant so single vanilla tree-seed can be planted on Gleba fertile soils
+if data.raw.plant["tree-plant"] then
+  local tree_plant = data.raw.plant["tree-plant"]
+  merge_emissions(tree_plant, {pollution = -0.005, spores = -0.05})
+  if tree_plant.surface_conditions then
+    for _, cond in ipairs(tree_plant.surface_conditions) do
+      if cond.property == "pressure" then
+        cond.max = gleba_pressure
+      end
+    end
+  end
+
+  if tree_plant.autoplace and tree_plant.autoplace.tile_restriction then
+    local gleba_soils = {
+      "natural-yumako-soil", "artificial-yumako-soil", "overgrowth-yumako-soil",
+      "natural-jellynut-soil", "artificial-jellynut-soil", "overgrowth-jellynut-soil",
+      "wetland-yumako", "wetland-jellynut",
+      "lowland-cream-cauliflower", "lowland-cream-cauliflower-2",
+      "lowland-cream-red", "lowland-pale-green",
+      "lowland-dead-skin", "lowland-dead-skin-2",
+      "lowland-red-vein", "lowland-red-vein-2", "lowland-red-vein-3", "lowland-red-vein-4", "lowland-red-vein-dead",
+      "lowland-olive-blubber", "lowland-olive-blubber-2", "lowland-olive-blubber-3",
+      "lowland-brown-blubber", "lowland-red-infection",
+      "midland-cracked-lichen", "midland-cracked-lichen-dull", "midland-cracked-lichen-dark",
+      "midland-turquoise-bark", "midland-turquoise-bark-2",
+      "midland-yellow-crust", "midland-yellow-crust-2", "midland-yellow-crust-3", "midland-yellow-crust-4",
+      "wetland-green-slime", "wetland-light-green-slime", "wetland-blue-slime",
+      "wetland-dead-skin", "wetland-light-dead-skin",
+      "wetland-pink-tentacle", "wetland-red-tentacle"
+    }
+    local existing = {}
+    for _, tile in ipairs(tree_plant.autoplace.tile_restriction) do
+      existing[tile] = true
+    end
+    for _, tile in ipairs(gleba_soils) do
+      if data.raw.tile[tile] and not existing[tile] then
+        table.insert(tree_plant.autoplace.tile_restriction, tile)
+      end
+    end
+  end
+end
+
+-- Allow tree-seed recipe (2 wood -> 1 tree-seed) to be crafted on Gleba
+if data.raw.recipe["tree-seed"] then
+  local recipe = data.raw.recipe["tree-seed"]
+  if recipe.surface_conditions then
+    for _, cond in ipairs(recipe.surface_conditions) do
+      if cond.property == "pressure" then
+        cond.max = gleba_pressure
+      end
+    end
+  end
 end
 
 data:extend(new_prototypes)

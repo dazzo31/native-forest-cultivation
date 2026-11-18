@@ -4,7 +4,7 @@ Added: all principles and sections below. Removed: none.
 Planning and specification templates were reviewed; no changes to shared templates are required.
 Deferred: ratification requires owner approval.
 -->
-# Native Flora Cultivation Fork Constitution
+# Native Forest Cultivation Constitution
 
 ## Migration Mode
 

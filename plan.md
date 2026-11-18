@@ -9,6 +9,21 @@ vanilla tree seed grows planet- and soil-appropriate vegetation with agricultura
 living trees remove the local airborne pollutant. Normal tower harvesting remains enabled. This
 plan is not implementation approval for a Mod Portal release or active-installation changes.
 
+## Goals and Non-Goals
+
+### Goals
+1. **Unified Tree Planting**: Support planting a single vanilla `tree-seed` in agricultural towers on both Nauvis and Gleba, growing terrain- and planet-appropriate native trees without requiring upstream biochamber recipes (REQ-001, REQ-002, REQ-003).
+2. **Sustainable Cultivation Cycle**: Preserve standard agricultural tower harvesting and replanting, converting harvested wood back into tree seeds via the vanilla 2-wood-to-1-seed recipe without recipe duplication (REQ-004, REQ-005).
+3. **Verifiable Environmental Absorption**: Configure living wild and cultivated trees to absorb local airborne pollutants (pollution on Nauvis, spores on Gleba) and measure net absorption across complete operational cycles (REQ-006, REQ-007).
+4. **Save Migration and Compatibility**: Maintain seamless migration for existing upstream mod saves without entity or inventory loss, fully compatible with Factorio 2.1 and Space Age (REQ-008, REQ-009, REQ-010).
+5. **Attribution and Transparency**: Retain MIT licensing and attribution, fully documenting mechanics, migration notes, and verified limits (REQ-011).
+
+### Non-Goals
+1. **No New Planets or Species**: No flora or surfaces outside Nauvis and the ten upstream Gleba species.
+2. **No Planting-Only Towers**: Do not modify tower engine behavior into a planting-only mode.
+3. **No Direct Mod Portal Publication**: No publishing or modifying user active game data without explicit sign-off.
+4. **No Unmeasured Net Absorption Claims**: No arbitrary numerical absorption claims without in-game empirical verification.
+
 ## Technical Context
 
 - **Platform**: Factorio 2.1, Space Age, Lua mod prototypes and runtime APIs.
@@ -53,16 +68,16 @@ real agricultural towers, manual planting, save/load, and both planets. Determin
 Factorio event or prototype mechanism from the installed game and official API documentation;
 do not assume an event exists or that it fires for tower planting.
 
-- [ ] T001 [Plan:1.1] Inspect `info.json`, `data.lua`, `prototypes/native-flora.lua`,
+- [x] T001 [Plan:1.1] Inspect `info.json`, `data.lua`, `prototypes/native-flora.lua`,
   `locale/en/`, installed Space Age prototypes, and enabled mods; record exact versions and
   existing planting, rendering, pollution, recipe, and migration behavior in test evidence.
-- [ ] T002 [Plan:1.1] Set up disposable Factorio configuration, mod directory and fixture saves;
+- [x] T002 [Plan:1.1] Set up disposable Factorio configuration, mod directory and fixture saves;
   verify the unmodified upstream fork starts and the minimal and full-mod baseline loads, without
   altering the user's active install or saves.
-- [ ] T003 [Plan:1.2] Prototype the least-complex single-seed selection approach in a disposable
+- [x] T003 [Plan:1.2] Prototype the least-complex single-seed selection approach in a disposable
   fixture. Demonstrate actual tower planting, manual planting, valid and invalid soil, both
   surfaces, seed consumption, growth and save/reload.
-- [ ] T004 [Plan:1.2] Enumerate each of the ten upstream Gleba species and suitable soil;
+- [x] T004 [Plan:1.2] Enumerate each of the ten upstream Gleba species and suitable soil;
   verify plant graphics and the existing missing-normal-map guard, including the feasibility of
   every species. If any requirement cannot be met, stop and ask the owner before changing scope.
 
@@ -77,16 +92,16 @@ spawn free plants, discard seeds, or call a mock test proof of tower behavior.
 **2.1** Implement the mechanism proven in Step 1. **2.2** Preserve ordinary harvesting and reuse
 the existing recipe. Keep irrelevant vanilla crops and tower behavior unchanged.
 
-- [ ] T005 [US1] [Plan:2.1] Update `prototypes/native-flora.lua` and `data.lua` as needed to
+- [x] T005 [US1] [Plan:2.1] Update `prototypes/native-flora.lua` and `data.lua` as needed to
   register viable planet-specific plants without unsafe graphics conversions; retain normal
   map safeguards and original vanilla tree behavior on Nauvis.
-- [ ] T006 [US1] [Plan:2.1] Add or update `control.lua` only if Step 1 proves a runtime handler
+- [x] T006 [US1] [Plan:2.1] Add or update `control.lua` only if Step 1 proves a runtime handler
   is necessary. Map suitable surface and soil to native species; handle manual/tower creation,
   blocked sectors, save/load and other mods without double consumption or duplicate entities.
-- [ ] T007 [US2] [Plan:2.2] Replace the need for upstream decoration recipes with the normal
+- [x] T007 [US2] [Plan:2.2] Replace the need for upstream decoration recipes with the normal
   tower harvest/replant flow; reuse `tree-seed` and its existing two-wood recipe. Preserve native
   harvest products where feasible; verify the seed supply and avoid duplicating recipe unlocks.
-- [ ] T008 [US1] [Plan:2.1,2.2] Update `locale/en/` and `info.json` descriptions to match the
+- [x] T008 [US1] [Plan:2.1,2.2] Update `locale/en/` and `info.json` descriptions to match the
   final behavior, without claiming support for unverified species or surfaces.
 
 ### Step 3: Make absorption observable and effective
@@ -97,14 +112,14 @@ the existing recipe. Keep irrelevant vanilla crops and tower behavior unchanged.
 planted trees. **3.2** Implement the simplest compatible mechanism and measure whole-cycle
 results, including tower activity and harvest emissions.
 
-- [ ] T009 [US3] [Plan:3.1] Inspect Factorio's installed prototype definitions and 2.1 API to
+- [x] T009 [US3] [Plan:3.1] Inspect Factorio's installed prototype definitions and 2.1 API to
   identify supported per-pollutant absorption, units and tree/plant inheritance; distinguish
   prototype support from runtime behavior with direct in-game measurements.
-- [ ] T010 [US3] [Plan:3.2] Configure living wild and planted tree absorption for Nauvis pollution
+- [x] T010 [US3] [Plan:3.2] Configure living wild and planted tree absorption for Nauvis pollution
   and Gleba spores, including the relevant vanilla and supported modded tree prototypes. Avoid
   silently overwriting stronger absorption or unrelated mod behavior; if compatibility cannot be
   preserved, stop for an owner decision.
-- [ ] T011 [US3] [Plan:3.2] Compare matched tree/no-tree fixtures, and separate active-tower and
+- [x] T011 [US3] [Plan:3.2] Compare matched tree/no-tree fixtures, and separate active-tower and
   idle/no-tree controls over multiple full growth/harvest cycles. Record initial pollutant,
   elapsed time, tree count, emissions, tree-attributable absorption and net results for each
   surface. Report if the operating cycle remains net positive in emissions.
@@ -116,17 +131,17 @@ results, including tower activity and harvest emissions.
 **4.1** Inventory and preserve or migrate old prototypes and items without data loss.
 **4.2** Update documentation and validate the final mod using disposable test installations.
 
-- [ ] T012 [Plan:4.1] Inventory old seed, crop, decoration, recipe and placed-entity prototypes
+- [x] T012 [Plan:4.1] Inventory old seed, crop, decoration, recipe and placed-entity prototypes
   from `prototypes/native-flora.lua`. Design and test migrations with upstream-save copies,
   including inventories, chests, towers, placed decorations, research and save/reload. Obtain
   owner approval before any incompatible migration; otherwise retain compatibility or block it.
-- [ ] T013 [Plan:4.2] Update `README.md`, `changelog.txt`, `info.json` and locale for the
+- [x] T013 [Plan:4.2] Update `README.md`, `changelog.txt`, `info.json` and locale for the
   actual gameplay, the 2:1 recipe and its surface restrictions, installation, compatibility,
   migration, absorption results, and known limitations. Preserve `LICENSE` and attribution.
-- [ ] T014 [Plan:4.2] Run focused actual-game acceptance scenarios for all requirements,
+- [x] T014 [Plan:4.2] Run focused actual-game acceptance scenarios for all requirements,
   including at least one supported and one blocked/mixed soil per surface, every supported
   species, forest growth, harvesting/replanting, ordinary fruit crops, and reload.
-- [ ] T015 [Plan:4.2] Run minimal-mod and full-enabled-mod startup and disposable-save checks;
+- [x] T015 [Plan:4.2] Run minimal-mod and full-enabled-mod startup and disposable-save checks;
   record commands, versions, quantitative results, failures, and explicit coverage gaps. Verify
   no original saves or active mods were modified. Do not publish or install without approval.
 

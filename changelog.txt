@@ -1,9 +1,20 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.1.0
+Date: 2026-11-18
+  Features:
+    - Rebranded to Native Forest Cultivation to differentiate from upstream Native Flora Cultivation.
+    - Unified single-seed cultivation: Agricultural towers on both Nauvis and Gleba now accept the vanilla tree-seed item.
+    - Soil- and surface-specific native growth: Planting a tree-seed on Gleba automatically selects and grows the appropriate native Gleba flora based on soil type (cuttlepop on yumako soils, teflilly on jellynut soils, slipstack/funneltrunk/hairyclubnub on lowlands, lickmaw/stingfrond/sunnycomb on midlands, boompuff/water-cane on wetlands). Nauvis trees never grow on Gleba.
+    - Closed-loop sustainable harvesting: Standard agricultural tower harvesting is fully preserved. Cultivated Gleba crops yield their native products and 4 wood. The vanilla tree-seed recipe (2 wood -> 1 tree-seed) is craftable on Gleba, sustaining the cultivation loop via wood processing.
+    - Bugfix: Eliminated unintended vanilla tree-seed generation during tower clearing and planting cycles by removing direct tree-seed drops from wild flora and immature crops.
+    - Active environmental pollutant absorption: Living wild and cultivated trees absorb local airborne pollutants (Nauvis pollution at -0.005/sec, Gleba spores at -0.05/sec). Active agricultural tower operating cycles have been empirically verified in-engine to achieve net positive pollutant reduction.
+  Compatibility:
+    - 100% backward compatible with upstream native-flora-cultivation 1.0.3 saves. All legacy tinted seeds, crops, hand-placeable decorations, chests, and biochamber recipes remain intact without item or entity loss.
+---------------------------------------------------------------------------------------------------
 Version: 1.0.3
 Date: 2026-08-27
   Bugfixes:
     - Release workflow now rejects tags whose version differs from info.json.
-
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.0
 Date: 2026-08-27
