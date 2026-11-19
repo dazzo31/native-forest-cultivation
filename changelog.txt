@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.1.1
+Date: 2026-11-19
+  Bugfixes:
+    - Fixed vanilla Gleba crop corruption: vanilla `jellystem` (jellynut) and `yumako-tree` crops are strictly ignored by the standing forest lifecycle.
+    - Fixed surface routing: Gleba crops and soils will never spawn Nauvis trees (`tree-01` through `tree-09`).
+  Migration:
+    - Added automated cleanup on load: any Nauvis trees erroneously placed on Gleba jellynut/yumako soils are restored to their native plants (`jellystem`/`yumako-tree`), and invalid harvest schedule entries are cleared.
+---------------------------------------------------------------------------------------------------
 Version: 1.1.0
 Date: 2026-11-18
   Features:

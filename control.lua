@@ -68,14 +68,6 @@ local nauvis_tree_names = {
   "tree-06", "tree-07", "tree-08", "tree-09"
 }
 
-local function get_tree_for_crop(crop_name, position)
-  if crop_name == "tree-plant" then
-    local idx = (math.abs(math.floor(position.x * 7 + position.y * 13)) % #nauvis_tree_names) + 1
-    return nauvis_tree_names[idx]
-  end
-  return gleba_crop_to_tree[crop_name] or "tree-08"
-end
-
 local function is_gleba_surface(surface)
   if not (surface and surface.valid) then
     return false
@@ -102,6 +94,41 @@ local function is_nauvis_surface(surface)
   return false
 end
 
+local function is_managed_crop_for_surface(crop_name, surface)
+  if not (crop_name and surface and surface.valid) then
+    return false
+  end
+  if is_nauvis_surface(surface) then
+    return crop_name == "tree-plant"
+  elseif is_gleba_surface(surface) then
+    return gleba_crop_to_tree[crop_name] ~= nil
+  end
+  return false
+end
+
+local function get_tree_for_crop(crop_name, surface, position)
+  if not (surface and surface.valid) then
+    return nil
+  end
+
+  if is_nauvis_surface(surface) then
+    if crop_name == "tree-plant" then
+      local idx = (math.abs(math.floor(position.x * 7 + position.y * 13)) % #nauvis_tree_names) + 1
+      return nauvis_tree_names[idx]
+    end
+    return "tree-08"
+  elseif is_gleba_surface(surface) then
+    if gleba_crop_to_tree[crop_name] then
+      return gleba_crop_to_tree[crop_name]
+    end
+    -- Fallback based on soil tile strictly to Gleba flora (NEVER Nauvis trees)
+    local tile = surface.get_tile(math.floor(position.x), math.floor(position.y))
+    local mapped_crop = (tile and gleba_soil_map[tile.name]) or default_gleba_crop
+    return gleba_crop_to_tree[mapped_crop] or "cuttlepop"
+  end
+  return nil
+end
+
 local function get_standing_delay_ticks()
   local setting = settings.global["native-forest-standing-delay"]
   local delay_minutes = setting and setting.value or 5.0
@@ -115,6 +142,11 @@ local function schedule_crop_maturity(crop)
   if not (crop and crop.valid) then
     return
   end
+  local surface = crop.surface
+  if not is_managed_crop_for_surface(crop.name, surface) then
+    return
+  end
+
   local mature_tick = crop.tick_grown
   if not mature_tick or mature_tick <= game.tick then
     return
@@ -227,22 +259,27 @@ local function on_tick(event)
           local crop_name = crop.name
           local surface = crop.surface
           local pos = crop.position
-          local tree_name = get_tree_for_crop(crop_name, pos)
 
-          crop.destroy()
-          local tree = surface.create_entity{
-            name = tree_name,
-            position = pos,
-            force = "neutral",
-            spill = false
-          }
-          if tree and tree.valid then
-            table.insert(storage.harvest_schedule[harvest_tick], {
-              entity = tree,
-              crop_name = crop_name,
-              surface = surface,
-              position = pos
-            })
+          -- Verify it is strictly a managed crop for this surface
+          if is_managed_crop_for_surface(crop_name, surface) then
+            local tree_name = get_tree_for_crop(crop_name, surface, pos)
+            if tree_name then
+              crop.destroy()
+              local tree = surface.create_entity{
+                name = tree_name,
+                position = pos,
+                force = "neutral",
+                spill = false
+              }
+              if tree and tree.valid then
+                table.insert(storage.harvest_schedule[harvest_tick], {
+                  entity = tree,
+                  crop_name = crop_name,
+                  surface = surface,
+                  position = pos
+                })
+              end
+            end
           end
         end
       end
@@ -261,15 +298,17 @@ local function on_tick(event)
         local pos = tree.position
         local crop_name = item.crop_name
 
-        tree.destroy()
-        local crop = surface.create_entity{
-          name = crop_name,
-          position = pos,
-          force = "neutral",
-          spill = false
-        }
-        if crop and crop.valid then
-          crop.tick_grown = 0 -- mature! ready for tower crane harvest
+        if is_managed_crop_for_surface(crop_name, surface) then
+          tree.destroy()
+          local crop = surface.create_entity{
+            name = crop_name,
+            position = pos,
+            force = "neutral",
+            spill = false
+          }
+          if crop and crop.valid then
+            crop.tick_grown = 0 -- mature! ready for tower crane harvest
+          end
         end
       end
     end
@@ -284,13 +323,139 @@ end
 local function on_configuration_changed()
   init_storage()
 
-  -- Scan active surfaces to register any pre-existing unmanaged growing crops
+  -- 1. Purge unmanaged crops from storage.mature_schedule
+  if storage.mature_schedule then
+    for tick, list in pairs(storage.mature_schedule) do
+      local filtered = {}
+      for _, crop in ipairs(list) do
+        if crop and crop.valid and is_managed_crop_for_surface(crop.name, crop.surface) then
+          table.insert(filtered, crop)
+        end
+      end
+      if #filtered > 0 then
+        storage.mature_schedule[tick] = filtered
+      else
+        storage.mature_schedule[tick] = nil
+      end
+    end
+  end
+
+  -- 2. Purge unmanaged crops from storage.harvest_schedule & restore vanilla crops if replaced
+  if storage.harvest_schedule then
+    for tick, list in pairs(storage.harvest_schedule) do
+      local filtered = {}
+      for _, item in ipairs(list) do
+        local tree = item.entity
+        local surface = item.surface or (tree and tree.valid and tree.surface)
+        local crop_name = item.crop_name
+        local pos = item.position or (tree and tree.valid and tree.position)
+
+        if surface and surface.valid and is_managed_crop_for_surface(crop_name, surface) then
+          table.insert(filtered, item)
+        else
+          -- This was an unmanaged crop (e.g. jellystem, yumako-tree, or tree-plant on Gleba)
+          if tree and tree.valid then
+            tree.destroy()
+          end
+          -- Restore vanilla plant if it was jellystem or yumako-tree
+          if surface and surface.valid and pos and (crop_name == "jellystem" or crop_name == "yumako-tree") then
+            local restored = surface.create_entity{
+              name = crop_name,
+              position = pos,
+              force = "neutral"
+            }
+            if restored and restored.valid then
+              restored.tick_grown = 0
+            end
+          end
+        end
+      end
+      if #filtered > 0 then
+        storage.harvest_schedule[tick] = filtered
+      else
+        storage.harvest_schedule[tick] = nil
+      end
+    end
+  end
+
+  -- 3. Scan Gleba surfaces: Remove any misplaced Nauvis trees (tree-01..tree-09, tree-plant)
   for _, surface in pairs(game.surfaces) do
-    if is_nauvis_surface(surface) or is_gleba_surface(surface) then
-      local plants = surface.find_entities_filtered{type = "plant"}
+    if is_gleba_surface(surface) then
+      for _, tname in ipairs(nauvis_tree_names) do
+        local bad_trees = surface.find_entities_filtered{name = tname}
+        for _, tree in ipairs(bad_trees) do
+          local pos = tree.position
+          local tile = surface.get_tile(math.floor(pos.x), math.floor(pos.y))
+          tree.destroy()
+
+          if tile and string.find(tile.name, "jellynut") then
+            local restored = surface.create_entity{
+              name = "jellystem",
+              position = pos,
+              force = "neutral"
+            }
+            if restored and restored.valid then
+              restored.tick_grown = 0
+            end
+          elseif tile and string.find(tile.name, "yumako") then
+            local restored = surface.create_entity{
+              name = "yumako-tree",
+              position = pos,
+              force = "neutral"
+            }
+            if restored and restored.valid then
+              restored.tick_grown = 0
+            end
+          else
+            local crop_name = (tile and gleba_soil_map[tile.name]) or default_gleba_crop
+            local gleba_tree = gleba_crop_to_tree[crop_name] or "cuttlepop"
+            surface.create_entity{
+              name = gleba_tree,
+              position = pos,
+              force = "neutral"
+            }
+          end
+        end
+      end
+
+      -- Also handle any tree-plant that may have been placed on Gleba
+      local stray_tree_plants = surface.find_entities_filtered{name = "tree-plant"}
+      for _, tp in ipairs(stray_tree_plants) do
+        local pos = tp.position
+        local tile = surface.get_tile(math.floor(pos.x), math.floor(pos.y))
+        local crop_name = (tile and gleba_soil_map[tile.name]) or default_gleba_crop
+        tp.destroy()
+        local new_crop = surface.create_entity{
+          name = crop_name,
+          position = pos,
+          force = "neutral",
+          spill = false
+        }
+        if new_crop and new_crop.valid then
+          schedule_crop_maturity(new_crop)
+        end
+      end
+    end
+  end
+
+  -- 4. Re-scan active surfaces ONLY for valid managed crops:
+  -- Nauvis: only tree-plant
+  -- Gleba: only native-flora-*-crop
+  for _, surface in pairs(game.surfaces) do
+    if is_nauvis_surface(surface) then
+      local plants = surface.find_entities_filtered{name = "tree-plant"}
       for _, plant in ipairs(plants) do
         if plant.valid and plant.tick_grown and plant.tick_grown > game.tick then
           schedule_crop_maturity(plant)
+        end
+      end
+    elseif is_gleba_surface(surface) then
+      for crop_name, _ in pairs(gleba_crop_to_tree) do
+        local crops = surface.find_entities_filtered{name = crop_name}
+        for _, crop in ipairs(crops) do
+          if crop.valid and crop.tick_grown and crop.tick_grown > game.tick then
+            schedule_crop_maturity(crop)
+          end
         end
       end
     end
@@ -319,7 +484,8 @@ if not remote.interfaces["native_forest_cultivation"] then
       end
       return false
     end,
-    get_standing_delay_ticks = get_standing_delay_ticks
+    get_standing_delay_ticks = get_standing_delay_ticks,
+    run_migration = on_configuration_changed
   })
 end
 
