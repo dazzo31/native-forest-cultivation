@@ -8,6 +8,8 @@ Date: 2026-11-18
     - Closed-loop sustainable harvesting: Standard agricultural tower harvesting is fully preserved. Cultivated Gleba crops yield their native products and 4 wood. The vanilla tree-seed recipe (2 wood -> 1 tree-seed) is craftable on Gleba, sustaining the cultivation loop via wood processing.
     - Bugfix: Eliminated unintended vanilla tree-seed generation during tower clearing and planting cycles by removing direct tree-seed drops from wild flora and immature crops.
     - Active environmental pollutant absorption: Living wild and cultivated trees absorb local airborne pollutants (Nauvis pollution at -0.005/sec, Gleba spores at -0.05/sec). Active agricultural tower operating cycles have been empirically verified in-engine to achieve net positive pollutant reduction.
+    - Post-maturity standing forest delay: Added configurable runtime-global setting `native-forest-standing-delay` (default: 5.0 minutes). Cultivated trees remain standing at 100% mature adult size for the configured duration before Agricultural Towers are permitted to clear and harvest them, creating natural persistent forests.
+    - Strict surface whitelisting: Prevents planting native tree seeds on non-native surfaces (Carna, Vulcanus, Fulgora, Aquilo, space platforms). Non-native planting immediately refunds the seed to the player or drops it safely on the ground with a localized notification.
   Compatibility:
     - 100% backward compatible with upstream native-flora-cultivation 1.0.3 saves. All legacy tinted seeds, crops, hand-placeable decorations, chests, and biochamber recipes remain intact without item or entity loss.
 ---------------------------------------------------------------------------------------------------
